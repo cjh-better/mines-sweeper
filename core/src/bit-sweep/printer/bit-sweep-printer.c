@@ -1,0 +1,61 @@
+#include "bit-sweep-printer.h"
+#include "bit-sweep-internal.h"
+#include "stdio.h"
+
+static void printCellValues(const BitSweep* const bitSweep);
+static void printCells(const BitSweep* const bitSweep);
+
+void printBitSweep(const BitSweep* const bitSweep)
+{
+    printf("\n");
+    printCellValues(bitSweep);
+    printf("\n");
+    printCells(bitSweep);
+    printf("\n");
+}
+
+static void printCellValues(const BitSweep* const bitSweep)
+{
+    Cell*** cells = bitSweep->cells;
+
+    for (int i = 0; i < bitSweep->height; i++)
+    {
+        for (int j = 0; j < bitSweep->width; j++)
+        {
+            Cell* cell = cells[j][i];
+
+            if (cellValue(cell) == ZERO)
+                printf(". ");
+            else if (!cellContainsBomb(cell))
+                printf("%d ", cellValue(cell));
+            else
+                printf("* ");
+        }
+
+        printf("\n");
+    }
+}
+
+static void printCells(const BitSweep* const bitSweep)
+{
+    Cell*** cells = bitSweep->cells;
+
+    for (int i = 0; i < bitSweep->height; i++)
+    {
+        for (int j = 0; j < bitSweep->width; j++)
+        {
+            Cell* cell = cells[j][i];
+
+            if (cellIsOpened(cell) && cellContainsBomb(cell))
+                printf("* ");
+            else if (!cellIsOpened(cell) && !cellIsMarked(cell))
+                printf(". ");
+            else if (cellIsMarked(cell))
+                printf("! ");
+            else
+                printf("%d ", cellValue(cell));
+        }
+
+        printf("\n");
+    }
+}

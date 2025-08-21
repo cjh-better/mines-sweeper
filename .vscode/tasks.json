@@ -1,0 +1,79 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "cmake --build ${workspaceFolder}/build",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Core tests",
+			"dependsOn": ["Build"],
+			"type": "shell",
+			"command": "./bitsweeper-core-tests",
+			"options": {
+				"cwd": "${workspaceFolder}/build/core/test"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run All Tests",
+			"dependsOn": ["Build", "Run Core tests"],
+			"dependsOrder": "sequence",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Run Game",
+			"dependsOn": ["Build"],
+			"type": "shell",
+			"command": "./bitsweeper-game.exe",
+			"options": {
+				"cwd": "${workspaceFolder}/build/ui"
+			},
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Configure CMake",
+			"type": "shell",
+			"command": "cmake",
+			"args": ["-B", "build", "-S", "."],
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Update Submodules",
+			"type": "shell",
+			"command": "git",
+			"args": ["submodule", "update", "--init", "--recursive"],
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		}
+	]
+}
