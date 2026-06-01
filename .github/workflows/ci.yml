@@ -19,21 +19,19 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Cache submodules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ui/lib/raylib
-          core/test/lib/unity
-        key: submodules-${{ hashFiles('.gitmodules') }}
 
     - name: Install Linux dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libasound2-dev
+
+    - name: Cache CMake FetchContent downloads
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: fetchcontent-ubuntu-${{ hashFiles('ui/CMakeLists.txt') }}
+        restore-keys: |
+          fetchcontent-ubuntu-
 
     - name: Cache CMake build (Debug)
       uses: actions/cache@v4
@@ -77,22 +75,20 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Cache submodules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ui/lib/raylib
-          core/test/lib/unity
-        key: submodules-${{ hashFiles('.gitmodules') }}
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libasound2-dev
+
+    - name: Cache CMake FetchContent downloads
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: fetchcontent-${{ matrix.os }}-${{ hashFiles('ui/CMakeLists.txt') }}
+        restore-keys: |
+          fetchcontent-${{ matrix.os }}-
 
     - name: Cache CMake build (Release)
       uses: actions/cache@v4
