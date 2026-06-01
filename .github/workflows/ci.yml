@@ -2,68 +2,112 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, master]
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  # ─── Fast feedback: build + test (Debug, Linux only) ───────────────
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
+          libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxkbcommon-dev
+
+    - name: Cache CMake FetchContent downloads
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: fetchcontent-ubuntu-${{ hashFiles('ui/CMakeLists.txt') }}
+        restore-keys: |
+          fetchcontent-ubuntu-
+
+    - name: Cache CMake build (Debug)
+      uses: actions/cache@v4
+      with:
+        path: build
+        key: cmake-debug-ubuntu-${{ hashFiles('CMakeLists.txt', 'core/CMakeLists.txt', 'ui/CMakeLists.txt', 'core/src/**', 'ui/src/**') }}
+        restore-keys: |
+          cmake-debug-ubuntu-
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+    - name: Build
+      run: cmake --build build --parallel $(nproc)
+
+    - name: Test
+      working-directory: build
+      run: ctest --build-config Debug --output-on-failure --parallel $(nproc)
+
+  # ─── Release builds + artifacts (all platforms, only after tests pass) ─
+  release:
+    needs: test
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Debug, Release]
+        include:
+          - os: ubuntu-latest
+            artifact_name: bitsweeper-linux-release
+            artifact_path: build/ui/bitsweeper-game
+          - os: windows-latest
+            artifact_name: bitsweeper-windows-release
+            artifact_path: |
+              build/ui/Release/bitsweeper-game.exe
+              build/ui/Release/*.dll
+          - os: macos-latest
+            artifact_name: bitsweeper-macos-release
+            artifact_path: build/ui/bitsweeper-game
 
     runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Setup CMake
-      uses: jwlawson/actions-setup-cmake@v1.14
-      with:
-        cmake-version: '3.20'
 
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev libasound2-dev
+        sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libasound2-dev \
+          libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxkbcommon-dev
+
+    - name: Cache CMake FetchContent downloads
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: fetchcontent-${{ matrix.os }}-${{ hashFiles('ui/CMakeLists.txt') }}
+        restore-keys: |
+          fetchcontent-${{ matrix.os }}-
+
+    - name: Cache CMake build (Release)
+      uses: actions/cache@v4
+      with:
+        path: build
+        key: cmake-release-${{ matrix.os }}-${{ hashFiles('CMakeLists.txt', 'core/CMakeLists.txt', 'ui/CMakeLists.txt', 'core/src/**', 'ui/src/**') }}
+        restore-keys: |
+          cmake-release-${{ matrix.os }}-
 
     - name: Configure CMake
-      run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
     - name: Build
-      run: |
-        cmake --build build --config ${{ matrix.build_type }}
+      run: cmake --build build --config Release --parallel 4
 
-    - name: Test
-      working-directory: build
-      run: |
-        ctest --build-config ${{ matrix.build_type }} --output-on-failure
-
-    - name: Upload artifacts (Windows)
-      if: runner.os == 'Windows' && matrix.build_type == 'Release'
-      uses: actions/upload-artifact@v3
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: bitsweeper-windows-release
-        path: |
-          build/ui/bitsweeper-game.exe
-          build/ui/*.dll
-
-    - name: Upload artifacts (Linux)
-      if: runner.os == 'Linux' && matrix.build_type == 'Release'
-      uses: actions/upload-artifact@v3
-      with:
-        name: bitsweeper-linux-release
-        path: build/ui/bitsweeper-game
-
-    - name: Upload artifacts (macOS)
-      if: runner.os == 'macOS' && matrix.build_type == 'Release'
-      uses: actions/upload-artifact@v3
-      with:
-        name: bitsweeper-macos-release
-        path: build/ui/bitsweeper-game
+        name: ${{ matrix.artifact_name }}
+        path: ${{ matrix.artifact_path }}
